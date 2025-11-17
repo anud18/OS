@@ -1,7 +1,7 @@
 # Makefile for sched_demo RISC-V cross-compilation
 
 # Set your student ID here (or override with: make STUDENT_ID=your_id)
-STUDENT_ID ?= student_id
+STUDENT_ID ?= 314551007
 
 # Cross-compiler for RISC-V
 CC = riscv64-linux-gnu-gcc

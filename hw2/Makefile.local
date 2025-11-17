@@ -2,7 +2,7 @@
 # Use this to test the program logic on your local machine
 
 # Set your student ID here
-STUDENT_ID ?= student_id
+STUDENT_ID ?= 314551007
 
 # Use local compiler
 CC = gcc
