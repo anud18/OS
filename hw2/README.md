@@ -4,9 +4,24 @@ This assignment implements a program to demonstrate different scheduling policie
 
 ## Files
 
+### Implementation Files
 - `sched_demo.c` - Main implementation file
 - `Makefile` - Build configuration for RISC-V cross-compilation
-- `README.md` - This file
+- `Makefile.local` - Local x86_64 build configuration for testing
+
+### Documentation
+- `README.md` - This file (overview and usage)
+- `QUICK_START.md` - 5-minute quick start guide
+- `IMPLEMENTATION_NOTES.md` - Technical details and design decisions
+- `TESTING_GUIDE.md` - Comprehensive testing instructions
+
+### Test Files (from GitHub)
+- `sched_demo` - Reference RISC-V binary (652 KB)
+- `sched_test.sh` - Automated test script
+
+### Helper Scripts
+- `deploy.sh` - Automated deployment script for QEMU
+- `setup_env.sh` - Environment setup and verification script
 
 ## Prerequisites
 
@@ -100,19 +115,26 @@ Thread 0 is running
 
 ## Testing
 
-If you have the test script `sched_test.sh`:
+The repository includes test files from the assignment:
+- `sched_demo` - Reference RISC-V binary
+- `sched_test.sh` - Automated test script
 
-1. Make it executable:
-```bash
-chmod +x sched_test.sh
-chmod +x sched_demo
-chmod +x sched_demo_<student_id>
-```
+### Quick Test
 
-2. Run tests:
+Inside QEMU, run:
+
 ```bash
+chmod +x sched_test.sh sched_demo sched_demo_<student_id>
 ./sched_test.sh ./sched_demo ./sched_demo_<student_id>
 ```
+
+### Test Cases
+
+1. Single NORMAL thread: `-n 1 -t 0.5 -s NORMAL -p -1`
+2. Two FIFO threads: `-n 2 -t 0.5 -s FIFO,FIFO -p 10,20`
+3. Mixed policies: `-n 3 -t 1.0 -s NORMAL,FIFO,FIFO -p -1,10,30`
+
+**For detailed testing instructions, see [TESTING_GUIDE.md](TESTING_GUIDE.md)**
 
 ## How It Works
 
