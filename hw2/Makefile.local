@@ -1,0 +1,54 @@
+# Makefile for local x86_64 testing (before cross-compilation)
+# Use this to test the program logic on your local machine
+
+# Set your student ID here
+STUDENT_ID ?= student_id
+
+# Use local compiler
+CC = gcc
+
+# Compiler flags
+CFLAGS = -Wall -Wextra -O2
+LDFLAGS = -pthread
+
+# Source and target
+SOURCE = sched_demo.c
+TARGET = sched_demo_$(STUDENT_ID)_local
+
+# Output options for dependency generation
+OUTPUT_OPTION = -MMD -MP -o $@
+
+# Object and dependency files
+OBJS = $(SOURCE:.c=.o)
+DEPS = $(SOURCE:.c=.d)
+
+.PHONY: all clean test
+
+# Default target
+all: $(TARGET)
+
+# Import dependencies
+-include $(DEPS)
+
+# Link the final executable
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+	@echo "Build complete: $(TARGET)"
+
+# Compile source files to object files
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< $(OUTPUT_OPTION)
+
+# Quick test
+test: $(TARGET)
+	@echo "Testing with 1 thread (NORMAL)..."
+	@sudo ./$(TARGET) -n 1 -t 0.5 -s NORMAL -p -1 || true
+	@echo ""
+	@echo "Testing with 2 threads (FIFO)..."
+	@echo "Note: You may need root privileges for SCHED_FIFO"
+	@sudo ./$(TARGET) -n 2 -t 0.5 -s FIFO,FIFO -p 10,20 || true
+
+# Clean build artifacts
+clean:
+	@rm -f $(TARGET) $(OBJS) $(DEPS)
+	@echo "Clean complete"
