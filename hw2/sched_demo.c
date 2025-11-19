@@ -25,8 +25,7 @@ void busy_wait(double seconds) {
 
     do {
         clock_gettime(CLOCK_THREAD_CPUTIME_ID, &current);
-        elapsed = (current.tv_sec - start.tv_sec) +
-                  (current.tv_nsec - start.tv_nsec) / 1e9;
+        elapsed = (current.tv_sec - start.tv_sec) + (current.tv_nsec - start.tv_nsec) / 1e9;
     } while (elapsed < seconds);
 }
 
@@ -121,7 +120,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // Create and configure threads 
+    // Create  threads 
     for (int i = 0; i < num_threads; i++) {
         thread_infos[i].thread_id = i;
         thread_infos[i].policy = policies[i];
