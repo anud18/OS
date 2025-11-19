@@ -5,20 +5,20 @@
 
 ---
 
-## 1. 詳細描述如何實作程式 (10%)
+## 1. Describe how you implemented the program in detail. (10%)
 
-### 1.1 整體架構
+### 整體架構
 
-程式分為兩個主要部分：主執行緒（main thread）和工作執行緒（worker threads）。
+程式分為兩個主要部分：main thread 和 worker threads。
 
-### 1.2 主執行緒實作細節
+### main thread 實作細節
 
-#### (1) 命令列參數解析
-使用 `getopt()` 函數解析四個參數：
-- `-n <num_threads>`: 執行緒數量
-- `-t <time_wait>`: 忙碌等待時間（秒）
-- `-s <policies>`: 排程策略（NORMAL 或 FIFO）
-- `-p <priorities>`: 優先權（NORMAL 為 -1，FIFO 為 1-99）
+#### (1) parse command-line options
+使用 `getopt()` 函數 parse 四個參數：
+- `-n <num_threads>`: number of threads to run simultaneously
+- `-t <time_wait>`: duration of "busy" period
+- `-s <policies>`: scheduling policy for each thread, SCHED_FIFO or SCHED_NORMAL
+- `-p <priorities>`: real-time thread priority for real-time threads
 
 ```c
 while ((opt = getopt(argc, argv, "n:t:s:p:")) != -1) {
@@ -31,8 +31,8 @@ while ((opt = getopt(argc, argv, "n:t:s:p:")) != -1) {
 }
 ```
 
-#### (2) CPU Affinity 設定
-將所有執行緒綁定到同一個 CPU（CPU 0），確保排程行為的可預測性：
+#### (2) CPU Affinity Setting
+將所有 Threads 綁定到同一個 CPU（CPU 0) 上
 
 ```c
 cpu_set_t cpuset;
@@ -41,25 +41,20 @@ CPU_SET(0, &cpuset);
 sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
 ```
 
-這樣做的原因：
-- 避免執行緒在不同 CPU 上執行而產生不可預測的行為
-- 讓排程策略的效果更明顯
-- 簡化測試和驗證
 
-#### (3) 執行緒屬性配置
+#### (3)  Set the attributes to each thread
 
-這是實作的**關鍵部分**，必須正確設定三個屬性：
 
 ```c
 pthread_attr_init(&attrs[i]);
 
-// 設定明確的排程繼承模式（非常重要！）
+// 設定排程的繼承模式
 pthread_attr_setinheritsched(&attrs[i], PTHREAD_EXPLICIT_SCHED);
 
-// 設定排程策略
-pthread_attr_setschedpolicy(&attrs[i], policies[i]); // SCHED_OTHER 或 SCHED_FIFO
+// 設定排程的策略
+pthread_attr_setschedpolicy(&attrs[i], policies[i]); // 使用 SCHED_OTHER 或 SCHED_FIFO
 
-// 設定優先權（僅對 FIFO 執行緒）
+//對使用 FIFO 的 Thread 設定 priority  
 if (policies[i] == SCHED_FIFO && priorities[i] > 0) {
     struct sched_param param;
     param.sched_priority = priorities[i];
@@ -67,71 +62,61 @@ if (policies[i] == SCHED_FIFO && priorities[i] > 0) {
 }
 ```
 
-**重要觀念**：
-- `PTHREAD_EXPLICIT_SCHED` 是必須的，否則執行緒會繼承父執行緒的排程策略而非使用指定的策略
-- `SCHED_OTHER` 在程式中對應 `SCHED_NORMAL`
-- FIFO 執行緒的優先權範圍是 1-99，數字越大優先權越高
 
-#### (4) 執行緒同步機制
 
-使用 `pthread_barrier` 確保所有執行緒同時開始執行：
+#### (4) 設定 Threads 的同步機制
+
+因為如果一個一個的開始所有 Threads 有可能會產生錯誤的 output
+因此使用 `pthread_barrier` 確保所有 Threads 同時開始執行，讓其同步啟動確保測試結果的一致性
 
 ```c
 pthread_barrier_init(&barrier, NULL, num_threads);
 ```
 
-這樣做的原因：
-- 如果執行緒一個一個開始執行，會導致不同的執行順序
-- 同步啟動可以確保測試結果的一致性
-- 更能展示排程策略的真實效果
 
-### 1.3 工作執行緒實作細節
+### Worker thread 實作細節
 
-每個工作執行緒的執行流程：
+每個 worker thread 的執行流程：
 
 ```c
 void *thread_func(void *arg) {
     thread_info_t *info = (thread_info_t *)arg;
 
-    // 1. 等待所有執行緒準備就緒
+    /* 1. Wait until all threads are ready */
+
     pthread_barrier_wait(&barrier);
 
-    // 2. 執行任務：迴圈 3 次
+    /* 2. Do the task */ 
     for (int i = 0; i < 3; i++) {
         printf("Thread %d is running\n", info->thread_id);
-        busy_wait(info->time_wait);  // 忙碌等待
+        busy_wait(info->time_wait);  // busy waiting
     }
 
-    // 3. 結束執行緒
+    // 3. 結束 Threads
     pthread_exit(NULL);
 }
 ```
 
-### 1.4 記憶體管理
+### Memory management
 
-程式正確地釋放所有動態分配的記憶體：
-- 執行緒陣列
-- 執行緒資訊結構
-- 執行緒屬性
-- 排程策略和優先權陣列
-- 字串緩衝區
-
-並且在結束時銷毀 barrier：
+最後是釋放掉 allocate 的記憶體空間，避免 memory leak
 ```c
-pthread_barrier_destroy(&barrier);
+    pthread_barrier_destroy(&barrier);
+    
+    free(threads);
+    free(thread_infos);
+    free(attrs);
+    free(policies);
+    free(priorities);
+    free(policies_str);
+    free(priorities_str);
 ```
 
 ---
 
-## 2. 描述 `./sched_demo -n 3 -t 1.0 -s NORMAL,FIFO,FIFO -p -1,10,30` 的結果及其原因 (10%)
+## 2. Describe the results of ./sched_demo -n 3 -t 1.0 -s NORMAL,FIFO,FIFO -p -1,10,30 and what causes that. (10%)
 
-### 2.1 執行緒配置
-
-- **Thread 0**: SCHED_NORMAL, 優先權 N/A
-- **Thread 1**: SCHED_FIFO, 優先權 10
-- **Thread 2**: SCHED_FIFO, 優先權 30（最高）
-
-### 2.2 預期輸出結果
+### 輸出結果
 
 ```
 Thread 2 is running
@@ -144,58 +129,8 @@ Thread 0 is running
 Thread 0 is running
 Thread 0 is running
 ```
-
-### 2.3 原因分析
-
-#### (1) Thread 2 先執行（FIFO 優先權 30）
-
-**原因**：
-- Thread 2 使用 SCHED_FIFO 策略且優先權最高（30）
-- 在 FIFO 排程中，優先權嚴格決定執行順序
-- 高優先權的 FIFO 執行緒會**立即搶佔**低優先權執行緒
-- FIFO 執行緒會持續執行直到：
-  1. 被更高優先權執行緒搶佔
-  2. 主動放棄 CPU（呼叫 sched_yield 或 sleep）
-  3. 進入阻塞狀態（I/O 等待）
-
-由於 Thread 2 優先權最高，它會完整執行 3 次迴圈。
-
-#### (2) Thread 1 接著執行（FIFO 優先權 10）
-
-**原因**：
-- Thread 2 完成後，Thread 1 是剩下執行緒中優先權最高的
-- Thread 1 同樣使用 SCHED_FIFO，會持續執行直到完成
-- Thread 0 使用 SCHED_NORMAL，會被 FIFO 執行緒搶佔
-
-#### (3) Thread 0 最後執行（NORMAL）
-
-**原因**：
-- Thread 0 使用 SCHED_NORMAL（CFS - Completely Fair Scheduler）
-- NORMAL 執行緒的優先權**永遠低於** FIFO 執行緒
-- 只有當所有 FIFO 執行緒都完成或阻塞時，NORMAL 執行緒才會獲得 CPU 時間
-
-### 2.4 關鍵概念
-
-**SCHED_FIFO 的特性**：
-- Real-time 排程策略
-- 沒有時間切片（time slice）
-- 優先權範圍：1-99
-- 高優先權執行緒會搶佔低優先權執行緒
-- 執行緒會持續執行直到完成或主動放棄
-
-**SCHED_NORMAL 的特性**：
-- 公平排程（Fair Scheduling）
-- 有時間切片，會被定期搶佔
-- 優先權低於所有 real-time 執行緒
-- 適合一般的互動式程式
-
-**執行順序總結**：
-```
-優先權: Thread 2 (FIFO 30) > Thread 1 (FIFO 10) > Thread 0 (NORMAL)
-執行順序: Thread 2 完整執行 → Thread 1 完整執行 → Thread 0 完整執行
-```
-
----
+原因為 NORMAL threads 的優先度會低於 FIFO threads，且 sched_rt_runtime_us 為 -1 real-time task 可以完全佔用 CPU 時間
+而 real-time thread 會先執行(thread 2 and thread 1)，然後 thread 2 優先度比 threads 1 高，因此執行順序為 thread 2 > thread 1 > thread 0 (NORMAL threads)
 
 ## 3. 描述 `./sched_demo -n 4 -t 0.5 -s NORMAL,FIFO,NORMAL,FIFO -p -1,10,-1,30` 的結果及其原因 (10%)
 
