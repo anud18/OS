@@ -449,8 +449,9 @@ sys     0m0.xxx s   # 核心態 CPU 時間（很少）
 ### What does the kernel.sched_rt_runtime_us effect? If this setting is changed (eg. 500000, 950000, 1000000), what will happen?(10%)
 
 
-`/proc/sys/kernel/sched_rt_runtime_us` 是 Linux 核心的 **RT throttling** 機制參數，主要是控制 real-time threads在每秒內最多可以使用多少 CPU 時間（微秒µs）
+`sched_rt_runtime_us` 是 Linux 核心的 **RT throttling** 機制的參數，用來控制 real-time threads在每秒內最多可以使用多少 CPU 時間（微秒µs）
 如果 sched_rt_runtime_us = 500000，那麼 real-time threads在 1 秒內最多只能使用 0.95 秒的 CPU，剩下的 0.05 秒保留給普通任務。
+下面是讓 sched_rt_runtime_us 設定 400000 ( 1 秒內使用最多 0.4 秒) 跑出來的結果
 ```bash
 ./sched_demo  -n 3 -t 2 -s NORMAL,FIFO,FIFO -p -1,10,30
 Thread 2 is running
@@ -463,6 +464,20 @@ Thread 1 is running
 Thread 1 is running
 Thread 1 is running
 ```
+這是設定 -1 的結果
+```bash
+./sched_demo  -n 3 -t 2 -s NORMAL,FIFO,FIFO -p -1,10,30
+Thread 2 is running
+Thread 2 is running
+Thread 2 is running
+Thread 1 is running
+Thread 1 is running
+Thread 1 is running
+Thread 0 is running
+Thread 0 is running
+Thread 0 is running
+```
+可以看到設定為 400000 時順序變更了，因為第一秒內 real-time 只能最多使用 0.4 秒，因此在第一秒時 Thread 2 只能執行 0.4 秒就必須讓給 Thread 1 去執行了，另外 sched_rt_runtime_us 是 real-time task 共享的因此也不會輪到 Thread 0 去使用。
 ---
 
 ## 總結
