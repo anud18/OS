@@ -25,6 +25,6 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -c $< $(OUTPUT_OPTION)
 
 clean:
-	@rm -f $(TARGET) $(OBJS) $(DEPS) sched_demo_*
+	@rm -f $(TARGET) $(OBJS) $(DEPS)
 	@echo "Clean complete"
 
