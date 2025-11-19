@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <time.h>
 
-/* Structure to hold thread information */
 typedef struct {
     int thread_id;
     int policy;
@@ -16,15 +15,12 @@ typedef struct {
     double time_wait;
 } thread_info_t;
 
-/* Global barrier for thread synchronization */
 pthread_barrier_t barrier;
 
-/* Function to perform busy waiting for specified seconds */
 void busy_wait(double seconds) {
     struct timespec start, current;
     double elapsed;
 
-    /* Get the CPU time (not wall clock time) */
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
 
     do {
@@ -44,7 +40,6 @@ void *thread_func(void *arg) {
     /* Do the task - run loop 3 times */
     for (int i = 0; i < 3; i++) {
         printf("Thread %d is running\n", info->thread_id);
-        /* Busy wait for specified time */
         busy_wait(info->time_wait);
     }
 
@@ -52,7 +47,6 @@ void *thread_func(void *arg) {
     pthread_exit(NULL);
 }
 
-/* Parse scheduling policy string */
 int parse_policy(const char *policy_str) {
     if (strcmp(policy_str, "NORMAL") == 0) {
         return SCHED_OTHER;
@@ -71,7 +65,6 @@ int main(int argc, char *argv[]) {
     char *priorities_str = NULL;
     int opt;
 
-    /* 1. Parse program arguments */
     while ((opt = getopt(argc, argv, "n:t:s:p:")) != -1) {
         switch (opt) {
             case 'n':
@@ -97,12 +90,10 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    /* Allocate arrays for threads and their info */
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
     thread_info_t *thread_infos = malloc(num_threads * sizeof(thread_info_t));
     pthread_attr_t *attrs = malloc(num_threads * sizeof(pthread_attr_t));
 
-    /* Parse policies */
     int *policies = malloc(num_threads * sizeof(int));
     char *token = strtok(policies_str, ",");
     for (int i = 0; i < num_threads && token != NULL; i++) {
@@ -110,7 +101,6 @@ int main(int argc, char *argv[]) {
         token = strtok(NULL, ",");
     }
 
-    /* Parse priorities */
     int *priorities = malloc(num_threads * sizeof(int));
     token = strtok(priorities_str, ",");
     for (int i = 0; i < num_threads && token != NULL; i++) {
@@ -118,58 +108,48 @@ int main(int argc, char *argv[]) {
         token = strtok(NULL, ",");
     }
 
-    /* Initialize barrier for all threads plus main thread */
     pthread_barrier_init(&barrier, NULL, num_threads);
 
-    /* 3. Set CPU affinity for main thread (all threads will inherit this) */
+    //  Set CPU affinity 
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset);  /* Pin to CPU 0 */
+    CPU_SET(0, &cpuset); 
 
     if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset) != 0) {
         perror("sched_setaffinity");
         exit(1);
     }
 
-    /* 2. Create and configure threads */
+    // Create and configure threads 
     for (int i = 0; i < num_threads; i++) {
-        /* Initialize thread info */
         thread_infos[i].thread_id = i;
         thread_infos[i].policy = policies[i];
         thread_infos[i].priority = priorities[i];
         thread_infos[i].time_wait = time_wait;
 
-        /* 4. Set the attributes for each thread */
         pthread_attr_init(&attrs[i]);
-
-        /* Set scheduling inheritance to explicit */
         pthread_attr_setinheritsched(&attrs[i], PTHREAD_EXPLICIT_SCHED);
-
-        /* Set scheduling policy */
         pthread_attr_setschedpolicy(&attrs[i], policies[i]);
 
-        /* Set scheduling priority if it's a real-time thread */
         if (policies[i] == SCHED_FIFO && priorities[i] > 0) {
             struct sched_param param;
             param.sched_priority = priorities[i];
             pthread_attr_setschedparam(&attrs[i], &param);
         }
 
-        /* Create the thread */
         if (pthread_create(&threads[i], &attrs[i], thread_func, &thread_infos[i]) != 0) {
             perror("pthread_create");
             exit(1);
         }
     }
 
-    /* 6. Wait for all threads to finish */
     for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
         pthread_attr_destroy(&attrs[i]);
     }
 
-    /* Cleanup */
     pthread_barrier_destroy(&barrier);
+    
     free(threads);
     free(thread_infos);
     free(attrs);
