@@ -1,12 +1,10 @@
-STUDENT_ID = 314551007
-
 CC = riscv64-linux-gnu-gcc
 
 CFLAGS = -Wall -Wextra -O2 -static
 LDFLAGS = -pthread
 
-SOURCE = sched_demo.c
-TARGET = sched_demo_$(STUDENT_ID)
+SOURCE = sched_demo_314551007.c
+TARGET = sched_demo_314551007
 
 OUTPUT_OPTION = -MMD -MP -o $@
 
