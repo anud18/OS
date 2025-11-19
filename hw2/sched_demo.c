@@ -30,20 +30,21 @@ void busy_wait(double seconds) {
     } while (elapsed < seconds);
 }
 
-/* Worker thread function */
 void *thread_func(void *arg) {
     thread_info_t *info = (thread_info_t *)arg;
 
-    /* Wait until all threads are ready */
+    /* 1. Wait until all threads are ready */
     pthread_barrier_wait(&barrier);
 
-    /* Do the task - run loop 3 times */
+    /* 2. Do the task - run loop 3 times */
     for (int i = 0; i < 3; i++) {
         printf("Thread %d is running\n", info->thread_id);
+        /* Busy for <time_wait> seconds */
         busy_wait(info->time_wait);
+        
     }
 
-    /* Exit the function */
+    /* 3. Exit the function */
     pthread_exit(NULL);
 }
 
